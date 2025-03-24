@@ -1,4 +1,4 @@
-name: Website Deployment
+name: Reuse website Deployement
 on:
   push:
     branches:
