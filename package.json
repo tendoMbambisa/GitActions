@@ -7,9 +7,10 @@
     "start": "node app.js",
     "dev": "vite",
     "lint": "eslint --ext .jsx --fix src",
-    "build": "vite build",
+    "build": "react-scripts build",
     "preview": "vite preview",
     "test": "vitest run"
+    
   },
   "dependencies": {
     "prop-types": "^15.8.1",
