@@ -1,5 +1,5 @@
 name: Matrix Demo
-on: push
+'on': push
 jobs:
   build:
     continue-on-error: true
@@ -13,14 +13,14 @@ jobs:
         exclude:
           - node-version: 12
             operating-system: windows-latest
-    runs-on: ${{matrix.opertaing-system}}
+    runs-on: '${{ matrix.opertaing-system }}'
     steps:
       - name: Get Code
         uses: actions/checkout@v3
       - name: Install NodeJS
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '${{ matrix.node-version }}'
       - name: Install Dependencies
         run: npm ci
       - name: Build project
