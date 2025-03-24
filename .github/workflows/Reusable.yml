@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Get Code
-        uses: actions/downoad-artifacts@4
+        uses: actions/download-artifacts@4
         with:
           name: ${{ inputs.artifact-name }}
       - name: List files
