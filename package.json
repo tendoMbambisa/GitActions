@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start": "node src/app.js",
+    "start": "react-scripts start",
     "dev": "vite",
     "lint": "eslint --ext .jsx --fix src",
     "build": "react-scripts build",
