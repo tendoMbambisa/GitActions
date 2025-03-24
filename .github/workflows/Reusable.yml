@@ -7,6 +7,13 @@ on:
         required: false
         default:  dist
         type: string
+    outputs:
+      result:
+        description: the result of the deployment operation
+        value: ${{ jobs.deploy.outputs.outcome}}
+    # secrets:
+    #   some-secret:
+    #     required: false
 jobs:
   deploy:
     runs-on: ubuntu-latest
