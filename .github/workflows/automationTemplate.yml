@@ -1,0 +1,119 @@
+name: SQL Setup Reusable Workflow
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+    secrets:
+      PINGGY_HOST:
+        required: true
+      DB_PASSWORD:
+        required: true
+      SQL_USER:
+        required: true
+
+jobs:
+  setup-sql:
+    name: Setup SQL Server 
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Cache APT packages
+        uses: actions/cache@v3
+        id: cache-apt
+        with:
+          path: |
+            /var/cache/apt
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-${{ hashFiles('**/Install SQL Server Client') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      - name: Cache SQL Server Tools
+        uses: actions/cache@v3
+        id: cache-sql-tools
+        with:
+          path: |
+            /opt/mssql-tools18
+            /usr/lib/x86_64-linux-gnu/libmsodbcsql-18*
+          key: ${{ runner.os }}-sql-tools-${{ hashFiles('**/Install SQL Server Client') }}
+          restore-keys: |
+            ${{ runner.os }}-sql-tools-
+
+      - name: Install SQL Server Client
+        if: steps.cache-apt.outputs.cache-hit != 'true' || steps.cache-sql-tools.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          echo "Installing SQL Server Client..."
+          sudo apt-get update && sudo apt-get install -y curl gnupg unixodbc-dev
+
+          curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          if [ $? -ne 0 ]; then
+            echo "Failed to add Microsoft key"
+            exit 1
+          fi
+
+          echo "deb [arch=amd64] https://packages.microsoft.com/ubuntu/22.04/prod jammy main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update
+          if [ $? -ne 0 ]; then
+            echo "Failed to update package lists"
+            exit 1
+          fi
+          
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 mssql-tools18
+          if [ $? -ne 0 ]; then
+            echo "Failed to install SQL Server packages"
+            exit 1
+          fi
+
+          echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
+          echo "SQL Server Client installation completed successfully!"
+
+      - name: Test Database Connection
+        env:
+          PINGGY_HOST: ${{ secrets.PINGGY_HOST }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SQL_USER: ${{ secrets.SQL_USER }}
+        run: |
+          echo "Testing database connection for ${{ inputs.environment_name }}..."
+          set +e
+          sqlcmd -S "$PINGGY_HOST" -U "$SQL_USER" -P "$DB_PASSWORD" -Q "SELECT 1" -N -C -b -o connect.log
+          EXIT_CODE=$?
+          set -e
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "::error::Database connection failed for ${{ inputs.environment_name }}!"
+            cat connect.log
+            exit 1
+          fi
+          echo "✅ Connection successful for ${{ inputs.environment_name }}!"
+          cat connect.log
+
+      - name: Setup Database
+        env:
+          PINGGY_HOST: ${{ secrets.PINGGY_HOST }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SQL_USER: ${{ secrets.SQL_USER }}
+        run: |
+          echo "Running database setup script for ${{ inputs.environment_name }}..."
+          set +e
+          sqlcmd -S "$PINGGY_HOST" -U "$SQL_USER" -P "$DB_PASSWORD" \
+            -N -C \
+            -i "./DatabaseAdministration/SQLStatements/SetupDatabase.sql" \
+            -b -o output.log -e -V 16 -y 1000
+          EXIT_CODE=$?
+          set -e
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "::error::Database setup failed for ${{ inputs.environment_name }} with exit code $EXIT_CODE"
+            cat output.log
+            exit 1
+          fi
+          echo "✅ Database setup successful for ${{ inputs.environment_name }}!"
+          cat output.log
